@@ -1,0 +1,26 @@
+missing:
+  network_intf:
+    __intf: 'cd /sys/class/net/; echo * | sed "s/ lo//;s/lo //;s/ /|/g"'
+    _default: '$__intf'
+    _regex_validate: '^(${__intf})$'
+  gateway:
+    __ip: 'route | sed -n "s/^default *\([0-9.]*\).*/\1/p"'
+    _default: '$__ip'
+    _regex_validate: '^([0-9]{1,3}\.){3}[0-9]{1,3}$'
+  ipaddress:
+    __ip: 'ip a show dev $network_intf | egrep -o "inet [0-9.]+" | sed -n "1s/inet //p"'
+    _default: '$__ip'
+    _regex_validate: '^([0-9]{1,3}\.){3}[0-9]{1,3}$'
+  ipmask:
+    __mask: 'ip a show dev $network_intf | egrep -o "inet [0-9./]+" | sed -n "1s;inet [0-9.]\+/;;p"'
+    _default: '$__mask'
+    _regex_validate: '^[0-9]{1,2}$'
+install:
+  device: "/dev/sda"
+  image_mirror: "https://stable.release.core-os.net/amd64-usr"
+  coreos_channel: "stable"
+  coreos_version: "current"
+bindings:
+  core:
+    config: ["core"]
+    data: ["common"]

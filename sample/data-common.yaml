@@ -1,0 +1,9 @@
+sshkey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDHrxMv0d7e0luFRci2eej36U5H3/9W5Hf4MEAruJxvCbrkgvA0r5hAOb62gY2/ieFY9mqDk0HwNszjuqeED5t1nZQTjTovRNYGCBwl/RDaaUWsEE1pXVYGiN3Ruu9ZdvGZnJ9214ntDJPpUzIhE6VqG4nyY9+kQER64CaoLL+E5E+TtgvM0xmsjCeIIGa0ob3p9bNMvV/sm+WzxZ58T7e46Et/X24dDjWQTQ/+XhrIiVkeyUq1unheXslq9FhVDnSUNfQXuNcYToXSH6Axd8JDYJIC4zS0oRnQN0OgPIFPE57Rx752R+u+dSWx6MwMnrKW4Jl3KKCm9/98nRtY0AGF core@localhost"
+hostname: "host1.localdomain"
+dns:
+- "8.8.8.8"
+- "8.8.4.4"
+ntp: "a.ntp.br b.ntp.br c.ntp.br"
+timezone: "America/Sao_Paulo"
+coreos-group: "stable"
+update-server: "https://public.update.core-os.net/v1/update"

@@ -1,0 +1,52 @@
+ssh_authorized_keys:
+- '{{sshkey}}'
+hostname: '{{hostname}}'
+coreos:
+  update:
+    group: '{{coreos-group}}'
+    reboot-strategy: etcd-lock
+    server: "{{update-server}}"
+  units:
+  - name: systemd-networkd.service
+    command: stop
+  - name: 00-en.network
+    runtime: true
+    content: |
+      [Match]
+      Name={{network_intf}}
+      [Network]
+      {{#dns}}
+      DNS={{.}}
+      {{/dns}}
+      Address={{ipaddress}}/{{ipmask}}
+      Gateway={{gateway}}
+  - name: down-interfaces.service
+    command: start
+    content: |
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/ip link set {{network_intf}} down
+      ExecStart=/usr/bin/ip addr flush dev {{network_intf}}
+  - name: systemd-networkd.service
+    command: restart
+  - name: settimezone.service
+    command: start
+    content: |
+      [Unit]
+      Description=Set the time zone
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/bin/timedatectl set-timezone {{timezone}}
+  - name: systemd-timesyncd.service
+    command: restart
+write_files:
+- path: "/etc/hosts"
+  content: |
+    {{ipaddress}} {{hostname}}
+    127.0.0.1 localhost
+    ::1 localhost
+- path: /etc/systemd/timesyncd.conf
+  content: |
+    [Time]
+    NTP={{ntp}}

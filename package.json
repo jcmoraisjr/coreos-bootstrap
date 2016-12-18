@@ -1,0 +1,22 @@
+{
+  "name": "coreos-bootstrap",
+  "version": "1.0.0",
+  "description": "",
+  "main": "bootstrap.js",
+  "dependencies": {
+    "argparse": "^1.0.9",
+    "body-parser": "^1.15.2",
+    "express": "^4.14.0",
+    "js-yaml": "^3.7.0",
+    "mustache": "^2.3.0"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "mocha": "^3.2.0"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "author": "",
+  "license": "ISC"
+}
