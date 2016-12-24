@@ -193,7 +193,9 @@ do_install() {
     -b "$image_mirror" \
     -C "$coreos_channel" \
     -V "$coreos_version" \
-    -c "$tmp" && sudo reboot
+    -c "$tmp"
+  sudo eject || :
+  echo "Now you can look around and if everything is ok just type: sudo reboot"
 }
 
 sleep 0.5
