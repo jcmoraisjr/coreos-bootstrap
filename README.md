@@ -17,7 +17,7 @@ Running with Node.js:
     npm install ## Only in the first time
     make node-run
 
-Running as a Docker container - you should copy `sample` directory if using Docker in a VM, like Docker Machine:
+Running as a Docker container - you should copy `sample` directory if using Docker on a VM, like Docker Machine:
 
     make container-run
 
@@ -38,7 +38,8 @@ Create a `user_data` file (see `sample/config-core.yaml` and `sample/data-common
 
     curl \
         -H 'Content-Type: application/json' \
-        -d '{
+        -d '
+        {
             "config": ["core"],
             "data": ["common"],
             "properties": {
@@ -53,25 +54,30 @@ Create a `user_data` file (see `sample/config-core.yaml` and `sample/data-common
 
 GET the same `user_data` file using a binding (see `sample/model.yaml`):
 
-    curl -o user_data '127.0.0.1:8080/api/bindings/core?network_intf=eth0&ipaddress=192.168.1.10&ipmask=24&gateway=192.168.1.1'
+    curl -o user_data '
+        127.0.0.1:8080/api/bindings/core?
+        network_intf=eth0&
+        ipaddress=192.168.1.10&
+        ipmask=24&
+        gateway=192.168.1.1'
 
 Manual provided properties, like `ipaddress` or `gateway` above, will override properties with the same name provided from data.
 
 ##Installation script
 
-Start the installation script from a CoreOS host running the CoreOS [ISO image](https://stable.release.core-os.net/amd64-usr/current/coreos_production_iso_image.iso).
+Start the installation script from a CoreOS host running the CoreOS [ISO](https://stable.release.core-os.net/amd64-usr/current/coreos_production_iso_image.iso) image.
 
 ##Assign a public IP address
 
 The installation script need to connect the CoreOS Bootstrap. If you have connectivity, jump to *Running the installation script* below.
 
-But if you don't have a DHCP server or if for some reason your public network interface doesn't have a valid IP address (check with `ip a`), you cannot access the CoreOS Bootstrap service. If so, follow this steps:
+But if you don't have a DHCP server or if for some reason the public network interface doesn't have a valid IP address (check with `ip a`), you cannot access the CoreOS Bootstrap service. If so, follow this steps:
 
-Check the name of your public network interface:
+Check the name of the public network interface on the CoreOS host:
 
-    ls /sys/class/net
+    ip a
 
-Change, below, `eth0` to the name of your public network interface, `192.168.1.11` to an IP address of your network, `24` to the network mask, `8.8.8.8` to your DNS (if you have one), and finally `192.168.1.1` to your gateway. Place the resulting content at `/etc/systemd/network/00-en.network`.
+Change, below, `eth0` to the name of the public network interface, `192.168.1.11` to an IP address of the network, `24` to the network mask, `8.8.8.8` to an internal DNS server (if you have one), and finally `192.168.1.1` to the gateway. Place the resulting content at `/etc/systemd/network/00-en.network`.
 
     [Match]
     Name=eth0
@@ -84,15 +90,17 @@ Restart the network service:
 
     sudo systemctl restart systemd-networkd
 
-Now `ip a` should list your public IP address. So let's configure CoreOS.
+Now `ip a` should list the public IP address. So let's configure CoreOS.
 
 ##Running the installation script
 
-Change `192.168.1.10:8080` below to the endpoint of your CoreOS Bootstrap service:
+Change `192.168.1.10:8080` below to the endpoint of the CoreOS Bootstrap service:
 
     bash <(curl 192.168.1.10:8080)
 
-... and follow the script. The installation process should take some time to download the CoreOS image. Tip: create a [mirror](https://stable.release.core-os.net/amd64-usr/) on your network, update `sample/model.yaml` and save some bandwidth.
+... and follow the script. The installation process should take some time to download the CoreOS image.
+
+**Tip:** create a [mirror](https://stable.release.core-os.net/amd64-usr/) on your network, update `sample/model.yaml` and save some bandwidth.
 
 After the installation process and the reboot, ssh to the CoreOS host. Change `192.168.1.11` below to it's public IP address:
 
@@ -106,7 +114,7 @@ CoreOS Bootstrap has the following options:
 * `-e, --endpoint`: optional CoreOS Bootstrap service endpoint used by in-loco installation script, in order to save some typing
 * `-l, --listen`: port to listen, default is `8080`
 
-#Config file
+#Config files
 
 Save parts of `cloud-config` in files named `<config-dir>/config-<name>.yaml`. Use as much config files as you need. All partial config names listed in the config array (`/api/config`) or a binding (`/api/bindings`) will be merged together in a single `cloud-config` output.
 
@@ -114,9 +122,11 @@ Valid `cloud-config` syntax should be used here, have a look at [config-core.yam
 
 The final merged `cloud-config` will be rendered with [Mustache](http://mustache.github.io), so everything it's [JavaScript](https://github.com/janl/mustache.js) implementation supports, CoreOS Bootstrap should support as well. Let me know if you have problems.
 
+Config files are not cached, so there is no need to restart the service after update the configuration.
+
 #Data file
 
-This key-value data file used to render `cloud-config` to the final output. Save as much `<config-dir>/data-<name>.yaml` as you need and list them in the data array (`/api/config`) or a binding (`/api/bindings`).
+This is a key-value data file used to render `config-*.yaml` files to the final `cloud-config` output. Use as much `<config-dir>/data-<name>.yaml` as you need and list them in the data array (`/api/config`) or a binding (`/api/bindings`).
 
 On name colision, the name declared on a data file listed later will overwrite that same name on a data file listed before.
 
@@ -194,9 +204,9 @@ Some premisses to take in mind:
 * All internal attributes are also optional
 * If you want `some_missing` declared in a special order, just add a line with `some_missing:` in the right position
 * User defined variables are prefixed with `__` (two underscores), will run as a Bash process, and it's stdout will be saved in an environment variable with the same name
-* Parameters to the installation script are prefixed with `_` (one underscore) and will be expanded before used, so it's valid to use any `$env_var` here
+* Parameters to the installation script are prefixed with `_` (one underscore) and will be [expanded](http://www.tldp.org/LDP/Bash-Beginners-Guide/html/sect_03_04.html#sect_03_04) before used, so it's valid to use any `$env_var` here
     * `_default`: default value of the missing
-    * `_regex_validate`: valid regex with extended syntax to validate data using `egrep`
+    * `_regex_validate`: valid regex with [extended](https://www.gnu.org/software/sed/manual/html_node/Extended-regexps.html) syntax to validate data
 
 **Samples**
 
@@ -230,11 +240,10 @@ This systemd unit has the most common configuration:
     [Service]
     ExecStartPre=-/usr/bin/docker stop coreos-bootstrap
     ExecStartPre=-/usr/bin/docker rm coreos-bootstrap
-    ExecStartPre=/usr/bin/mkdir -p /var/lib/coreos-bootstrap/config
     ExecStart=/usr/bin/docker run \
       --name coreos-bootstrap \
       -p 8080:8080 \
-      -v /var/lib/coreos-bootstrap/config:/var/lib/coreos-bootstrap/config \
+      -v /var/lib/coreos-bootstrap/config:/var/lib/coreos-bootstrap/config:ro \
       quay.io/jcmoraisjr/coreos-bootstrap:latest \
         --config=/var/lib/coreos-bootstrap/config \
         --endpoint=192.168.1.10:8080
