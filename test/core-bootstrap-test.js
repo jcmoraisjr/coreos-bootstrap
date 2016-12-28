@@ -99,6 +99,10 @@ ConfigLoaderMock.prototype.loadModelSync = function() {
                 "missing":{
                     "channel":{}
                 }
+            },
+            "double_data":{
+                "config":["core"],
+                "data":["data","data_core"]
             }
         }
     };
@@ -219,6 +223,38 @@ write_files: []
                     done();
                 });
             }).to.throw(BootstrapError, 'Missing properties: ');
+        });
+    });
+    describe('loadView', function() {
+        it('should throw on undefined binding', function() {
+            expect(function() {
+                coreBootstrap.loadView(undefined, function(){});
+            }).to.throw(BootstrapError, 'Invalid binding');
+        });
+        it('should throw on invalid binding', function() {
+            expect(function() {
+                coreBootstrap.loadView('simplexxx', function(){});
+            }).to.throw(BootstrapError, 'Invalid binding');
+        });
+        it('should call onReady on ready', function(done) {
+            coreBootstrap.loadView('simple', function() {
+                done();
+            });
+        });
+        it('should list all datas from simple', function(done) {
+            coreBootstrap.loadView('simple', function(view) {
+                expect(view).to.equals(`reboot_strategy=etcd-lock
+`);
+                done();
+            });
+        });
+        it('should list all datas from double_data', function(done) {
+            coreBootstrap.loadView('double_data', function(view) {
+                expect(view).to.equals(`ipaddr=
+reboot_strategy=etcd-lock
+`);
+                done();
+            });
         });
     });
     describe('loadMissing', function() {

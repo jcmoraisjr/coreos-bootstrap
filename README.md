@@ -204,9 +204,11 @@ Some premisses to take in mind:
 * All internal attributes are also optional
 * If you want `some_missing` declared in a special order, just add a line with `some_missing:` in the right position
 * User defined variables are prefixed with `__` (two underscores), will run as a Bash process, and it's stdout will be saved in an environment variable with the same name
-* Parameters to the installation script are prefixed with `_` (one underscore) and will be [expanded](http://www.tldp.org/LDP/Bash-Beginners-Guide/html/sect_03_04.html#sect_03_04) before used, so it's valid to use any `$env_var` here
+* Parameters to the installation script are prefixed with `_` (one underscore) and will be [expanded](http://www.tldp.org/LDP/Bash-Beginners-Guide/html/sect_03_04.html#sect_03_04) before used, so it's valid to use any `$__user_defined` from the missing configuration, `$param_name` from data, or an already typed `$missing`
     * `_default`: default value of the missing
     * `_regex_validate`: valid regex with [extended](https://www.gnu.org/software/sed/manual/html_node/Extended-regexps.html) syntax to validate data
+
+**Note:** Data values from `data-*.yaml` are also available as environment variables on `_install_param` and `__user_defined` internal attributes, however only variables matching `[A-Za-z_][A-Za-z0-9_]*` will be exported.
 
 **Samples**
 

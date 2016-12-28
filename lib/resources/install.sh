@@ -32,6 +32,18 @@ read_params_missing() {
 }
 
 #1 binding
+read_export_view() {
+  if view=$(read_sh "/$1/view" "#view#"); then
+    while IFS="=" read -r k v; do
+      if [[ "$k" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        read $k <<< "$v"
+        export $k
+      fi
+    done <<< "$view"
+  fi
+}
+
+#1 binding
 #2 param name
 read_default_missing() {
   unset _default _regex_validate
@@ -99,7 +111,7 @@ valid() {
   esac
   case "$2" in
     svc_bootstrap) read_bindings "$3";;
-    binding) read_params_missing "$3" && read_install_params "$3";;
+    binding) read_params_missing "$3" && read_install_params "$3" && read_export_view "$3";;
   esac
 }
 
@@ -147,6 +159,7 @@ read_cloud_config() {
 
 #1... params
 ask_to_only_generate() {
+  echo
   echo "============"
   echo
   for param in $*; do
