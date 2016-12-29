@@ -141,6 +141,7 @@ read_params() {
   done
 }
 
+#stdout new cloud-config content
 read_cloud_config() {
   build_missing=
   for missing in $params_missing; do
@@ -153,12 +154,20 @@ read_cloud_config() {
     echo "$res" >&2
     exit 1
   fi
-  cloud_config="$res"
+  echo "$res"
 }
 
+#1 cloud-config
+cloud_config_no_changes() {
+  # diff returns true (0) if the files don't differ
+  sudo diff -q "$1" "$user_data_file" >/dev/null
+}
 
-#1... params
+#1 <>'' if is installed
+#2... params
 ask_to_only_generate() {
+  is_installed=$1
+  shift
   echo
   echo "============"
   echo
@@ -170,18 +179,42 @@ ask_to_only_generate() {
   echo
 
   action=
-  while [[ ! "$action" =~ ^[IiGg]$ ]]; do
-    echo -n "Proceed to [i]nstall or just [g]enerate cloud-config? [i|g]: "
+  if [ "$is_installed" ]; then
+    msg="[u]pdate"
+    opt="Uu"
+    sel="u"
+  else
+    msg="[i]nstall"
+    opt="Ii"
+    sel="i"
+  fi
+  while [[ ! "$action" =~ ^["${opt}"Gg]$ ]]; do
+    echo -n "Proceed to $msg or just [g]enerate cloud-config? [${sel}|g]: "
     read action
   done
 
   [[ "$action" =~ ^[Gg]$ ]]
 }
 
+#1 cloud-config
 save_cloud_config() {
   tmp=$(mktemp)
-  echo "$cloud_config" > "$tmp"
+  mv "$1" "$tmp"
   echo "Cloud config saved to '$tmp'"
+}
+
+#1 cloud-config
+ask_to_update() {
+  sudo diff -u "$user_data_file" "$1"
+  echo
+  echo "============"
+  echo
+  action=
+  while [[ ! "$action" =~ ^[YyNn]$ ]]; do
+    echo -n "OK to overwrite user_data and execute coreos-cloudinit? [y|n]: "
+    read action
+  done
+  [[ "$action" =~ ^[Yy]$ ]]
 }
 
 #1... params
@@ -191,22 +224,28 @@ ask_to_install() {
     echo -n "OK to install? [y|n]: "
     read action
   done
-
   [[ "$action" =~ ^[Yy]$ ]]
 }
 
 #1 cloud-config
+do_update() {
+  sudo mv "$1" "$user_data_file"
+  echo "coreos-cloudinit --from-file $user_data_file"
+  sudo coreos-cloudinit --from-file "$user_data_file"
+  echo
+  echo "Successfully applied!"
+  echo "Note that only 'restart'ed units will have their changes applied."
+}
+
+#1 cloud-config
 do_install() {
-  tmp=$(mktemp)
-  trap "rm -f $tmp" EXIT
-  echo "$1" > "$tmp"
   echo "coreos-install -d $device -b $image_mirror -C $coreos_channel -V $coreos_version -c cloud-config.yml"
   sudo coreos-install \
     -d "$device" \
     -b "$image_mirror" \
     -C "$coreos_channel" \
     -V "$coreos_version" \
-    -c "$tmp"
+    -c "$1"
   sudo eject || :
   echo "Now you can look around and if everything is ok just type: sudo reboot"
 }
@@ -224,10 +263,31 @@ if [ -n "$params_missing" ]; then
   read_params "missing" $params_missing
 fi
 
-read_cloud_config
+user_data_file="/var/lib/coreos-install/user_data"
+cloud_config=$(mktemp)
+trap "rm -f $cloud_config" EXIT
+read_cloud_config > "$cloud_config"
 
-if ask_to_only_generate $params_bootstrap $params_missing; then
-  save_cloud_config
+[ -d /var/lib/coreos-install ] && is_installed=1 || is_installed=
+if [ $is_installed ] && cloud_config_no_changes "$cloud_config"; then
+  echo
+  echo "============"
+  echo
+  echo "Local user_data is already updated!"
+  echo "If you want to apply the actual configuration:"
+  echo
+  echo "    sudo coreos-cloudinit --from-file $user_data_file"
+  echo
+elif ask_to_only_generate "$is_installed" $params_bootstrap $params_missing; then
+  save_cloud_config "$cloud_config"
+elif [ $is_installed ]; then
+  echo
+  if ask_to_update "$cloud_config"; then
+    echo
+    do_update "$cloud_config"
+  else
+    save_cloud_config "$cloud_config"
+  fi
 else
   params_installation="device image_mirror coreos_channel coreos_version"
   echo
@@ -239,6 +299,6 @@ else
     echo
     do_install "$cloud_config"
   else
-    save_cloud_config
+    save_cloud_config "$cloud_config"
   fi
 fi

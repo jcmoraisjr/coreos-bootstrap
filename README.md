@@ -6,7 +6,7 @@ CoreOS Bootstrap merges partial configuration files, apply predefined or on dema
 
 Configuration render uses [{{Mustache}}](http://mustache.github.io) templates, so everything it's [JavaScript](https://github.com/janl/mustache.js) implementation supports, CoreOS Bootstrap should support as well.
 
-CoreOS Bootstrap also provides a simple-to-use in-place installation script.
+CoreOS Bootstrap also provides a simple-to-use in-place installation and update script.
 
 [![Docker Repository on Quay](https://quay.io/repository/jcmoraisjr/coreos-bootstrap/status "Docker Repository on Quay")](https://quay.io/repository/jcmoraisjr/coreos-bootstrap)
 
@@ -65,7 +65,7 @@ Manual provided properties, like `ipaddress` or `gateway` above, will override p
 
 ##Installation script
 
-Start the installation script from a CoreOS host running the CoreOS [ISO](https://stable.release.core-os.net/amd64-usr/current/coreos_production_iso_image.iso) image.
+Start the installation script from a CoreOS host running the CoreOS [ISO](https://stable.release.core-os.net/amd64-usr/current/coreos_production_iso_image.iso) image, or any other live CD with `coreos-install` and `bash`.
 
 ##Assign a public IP address
 
@@ -105,6 +105,12 @@ Change `192.168.1.10:8080` below to the endpoint of the CoreOS Bootstrap service
 After the installation process and the reboot, ssh to the CoreOS host. Change `192.168.1.11` below to it's public IP address:
 
     ssh -i sample/id_rsa core@192.168.1.11
+
+##Update CoreOS
+
+The same script used to install should also be used to update CoreOS configuration. Change `192.168.1.10:8080` below to the endpoint of the CoreOS Bootstrap service and run on the CoreOS host to be updated:
+
+    bash <(curl 192.168.1.10:8080)
 
 #Options
 
