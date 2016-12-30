@@ -14,7 +14,7 @@ CoreOS Bootstrap also provides a simple-to-use in-place installation and update 
 
 Running with Node.js:
 
-    npm install ## Only in the first time
+    npm install --production ## Only in the first time
     make node-run
 
 Running as a Docker container - you should copy `sample` directory if using Docker on a VM, like Docker Machine:
