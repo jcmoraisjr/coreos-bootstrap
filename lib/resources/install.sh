@@ -23,16 +23,27 @@ read_sh() {
 
 #1 svc_bootstrap
 read_bindings() {
+  # global: binding
+  #
+  # $binding receives a pipe `|` separated list of bindings as it's default value
   binding=$(read_sh "/" "#bindings#" "$1")
 }
 
 #1 binding
 read_params_missing() {
+  # global: params_missing
+  #
+  # $params_missing receives a space ` ` separated list of missing parameters
+  # to be queried to the sysadmin
   params_missing=$(read_sh "/$1/missing" "#params-missing#")
 }
 
 #1 binding
 read_export_view() {
+  # globals: non missing attributes from CoreOS Bootstrap view
+  #
+  # read and export all attributes from the view (non missing params) in order to
+  # be used by `_install_params` and `__user_defined` internal attributes of missings
   if view=$(read_sh "/$1/view" "#view#"); then
     while IFS="=" read -r k v; do
       if [[ "$k" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
@@ -46,6 +57,12 @@ read_export_view() {
 #1 binding
 #2 param name
 read_default_missing() {
+  # globals: `_*` and `__*` from missing configuration
+  #
+  # read `_install_params` and `__user_defined` internal attributes from missing
+  # configuration
+  # read also the default value of a param
+  local missing k v
   unset _default _regex_validate
   if missing=$(read_sh "/$1/missing/$2" "#missing#"); then
     while IFS= read -r line; do
@@ -80,9 +97,13 @@ validate_missing() {
 
 #1 binding
 read_install_params() {
+  # globals: device image_mirror coreos_channel coreos_version
+  #
+  # read params used by coreos-install
+  local install_params line
   if install_params=$(read_sh "/$1/install" "#install-params#"); then
-    while IFS="=" read -r k v; do
-      read $k <<< "$v"
+    while IFS= read -r line; do
+      read ${line%%=*} <<< "${line#*=}"
     done <<< "$install_params"
     return 0
   else
@@ -111,6 +132,8 @@ valid() {
   esac
   case "$2" in
     svc_bootstrap) read_bindings "$3";;
+    # binding validation used, also, as a trigger to read default values for
+    # missing and installation stuf
     binding) read_params_missing "$3" && read_install_params "$3" && read_export_view "$3";;
   esac
 }
@@ -118,8 +141,12 @@ valid() {
 #1 group name
 #2... params
 read_params() {
-  groupName=$1
+  # globals: all params starting from arg 2
+  #
+  # read params from user input
+  local groupName=$1
   shift
+  local param paramvalue
   for param in "$@"; do
     while true; do
       default_val "$groupName" "$param"
@@ -143,6 +170,7 @@ read_params() {
 
 #stdout new cloud-config content
 read_cloud_config() {
+  local build_missing missing res
   build_missing=
   for missing in $params_missing; do
     build_missing+="${missing}=${!missing}&"
@@ -166,6 +194,7 @@ cloud_config_no_changes() {
 #1 <>'' if is installed
 #2... params
 ask_to_only_generate() {
+  local is_installed param action msg opt sel
   is_installed=$1
   shift
   echo
@@ -178,16 +207,13 @@ ask_to_only_generate() {
   echo "============"
   echo
 
-  action=
   if [ "$is_installed" ]; then
-    msg="[u]pdate"
-    opt="Uu"
-    sel="u"
+    msg="[u]pdate";  opt="Uu"; sel="u"
   else
-    msg="[i]nstall"
-    opt="Ii"
-    sel="i"
+    msg="[i]nstall"; opt="Ii"; sel="i"
   fi
+
+  action=
   while [[ ! "$action" =~ ^["${opt}"Gg]$ ]]; do
     echo -n "Proceed to $msg or just [g]enerate cloud-config? [${sel}|g]: "
     read action
@@ -198,6 +224,7 @@ ask_to_only_generate() {
 
 #1 cloud-config
 save_cloud_config() {
+  local tmp
   tmp=$(mktemp)
   mv "$1" "$tmp"
   echo "Cloud config saved to '$tmp'"
@@ -205,6 +232,7 @@ save_cloud_config() {
 
 #1 cloud-config
 ask_to_update() {
+  local action
   sudo diff -u "$user_data_file" "$1"
   echo
   echo "============"
@@ -217,8 +245,8 @@ ask_to_update() {
   [[ "$action" =~ ^[Yy]$ ]]
 }
 
-#1... params
 ask_to_install() {
+  local action
   action=
   while [[ ! "$action" =~ ^[YyNn]$ ]]; do
     echo -n "OK to install? [y|n]: "
@@ -293,9 +321,8 @@ else
   echo
   echo "=== Installation params"
   read_params "install" $params_installation
-
   echo
-  if ask_to_install $params_bootstrap $params_missing $params_installation; then
+  if ask_to_install; then
     echo
     do_install "$cloud_config"
   else
