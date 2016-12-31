@@ -77,18 +77,9 @@ Check the name of the public network interface on the CoreOS host:
 
     ip a
 
-Change, below, `eth0` to the name of the public network interface, `192.168.1.11` to an IP address of the network, `24` to the network mask, `8.8.8.8` to an internal DNS server (if you have one), and finally `192.168.1.1` to the gateway. Place the resulting content at `/etc/systemd/network/00-en.network`.
+Change, below, `192.168.1.11` to a valid IP address on the network, `24` to the network mask and `eth0` to the name of the public network interface.
 
-    [Match]
-    Name=eth0
-    [Network]
-    Address=192.168.1.11/24
-    DNS=8.8.8.8
-    Gateway=192.168.1.1
-
-Restart the network service:
-
-    sudo systemctl restart systemd-networkd
+    sudo ip addr add 192.168.1.11/24 dev eth0
 
 Now `ip a` should list the public IP address. So let's configure CoreOS.
 
