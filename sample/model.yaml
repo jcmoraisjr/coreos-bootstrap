@@ -1,10 +1,10 @@
 missing:
   network_intf:
-    __intf: 'cd /sys/class/net/; echo * | sed "s/ lo//;s/lo //;s/ /|/g"'
+    __intf: 'cd /sys/class/net/ && echo * | sed "s/ lo//;s/lo //;s/ /|/g"'
     _default: '$__intf'
     _regex_validate: '^(${__intf})$'
   gateway:
-    __ip: 'route | sed -n "s/^default *\([0-9.]*\).*/\1/p"'
+    __ip: 'route -n | sed -n "s/^0\.0\.0\.0 *\([0-9.]*\).*/\1/p"'
     _default: '$__ip'
     _regex_validate: '^([0-9]{1,3}\.){3}[0-9]{1,3}$'
   ipaddress:
