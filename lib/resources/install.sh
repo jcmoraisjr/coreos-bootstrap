@@ -194,14 +194,17 @@ cloud_config_no_changes() {
 #1 <>'' if is installed
 #2... params
 ask_to_only_generate() {
-  local is_installed param action msg opt sel
+  local is_installed param value action msg opt sel
   is_installed=$1
   shift
   echo
   echo "============"
   echo
   for param in $*; do
-    printf '%16s: %s\n' "$param" "${!param}"
+    value=${!param}
+    printf '%16s:  %s\n' \
+      "$param" \
+      "$([ ${#value} -gt 58 ] && echo "${value:0:27}_..._${value:$((${#value}-26))}" || echo "$value")"
   done
   echo
   echo "============"
