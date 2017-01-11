@@ -56,14 +56,14 @@ read_export_view() {
 
 #1 binding
 #2 param name
-read_default_missing() {
+read_missing() {
   # globals: `_*` and `__*` from missing configuration
   #
   # read `_install_params` and `__user_defined` internal attributes from missing
   # configuration
   # read also the default value of a param
   local missing k v
-  unset _default _regex_validate
+  unset _help _default _regex_validate
   if missing=$(read_sh "/$1/missing/$2" "#missing#"); then
     while IFS= read -r line; do
       k="${line%%=*}"
@@ -74,10 +74,6 @@ read_default_missing() {
         read $k <<< "$v"
       fi
     done <<< "$missing"
-    if [ -n "$_default" ]; then
-      # Yes, eval is evil. I trust the source.
-      read $2 <<< "$(eval echo \"$_default\")"
-    fi
     return 0
   else
     return 1
@@ -113,9 +109,14 @@ read_install_params() {
 
 #1 group name
 #2 param name
-default_val() {
+pre_proc() {
   case "$1" in
-    missing) read_default_missing "$binding" "$2" || return 1;;
+    missing)
+      read_missing "$binding" "$2" || return 1
+      # Yes, eval is evil. I trust the source.
+      [ -n "$_default" ] && read $2 <<< "$(eval echo \"$_default\")"
+      [ -n "$_help" ] && eval echo ":: $_help"
+      ;;
   esac
   case "$2" in
     svc_bootstrap) svc_bootstrap="$SVC";;
@@ -144,23 +145,25 @@ read_params() {
   # globals: all params starting from arg 2
   #
   # read params from user input
-  local groupName=$1
+  local groupName first param value
+  groupName=$1
   shift
-  local param paramvalue
   for param in "$@"; do
+    first=1
     while true; do
-      default_val "$groupName" "$param"
+      [ $first ] && pre_proc "$groupName" "$param"
+      first=
       echo -n "$param [${!param}]: "
-      read paramvalue
-      if [ -z "$paramvalue" ]; then
-        paramvalue=${!param}
+      read value
+      if [ -z "$value" ]; then
+        value=${!param}
       fi
-      if [ -z "$paramvalue" ]; then
+      if [ -z "$value" ]; then
         echo "Param is mandatory!"
-      elif ! valid "$groupName" "$param" "$paramvalue"; then
-        echo "Invalid content: $paramvalue"
+      elif ! valid "$groupName" "$param" "$value"; then
+        echo "Invalid content: $value"
       else
-        read $param <<< "$paramvalue"
+        read $param <<< "$value"
         export $param
         break
       fi

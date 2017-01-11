@@ -202,6 +202,7 @@ Some premisses to take in mind:
 * If you want `some_missing` declared in a special order, just add a line with `some_missing:` in the right position
 * User defined variables are prefixed with `__` (two underscores), will run as a Bash process, and it's stdout will be saved in an environment variable with the same name
 * Parameters to the installation script are prefixed with `_` (one underscore) and will be [expanded](http://www.tldp.org/LDP/Bash-Beginners-Guide/html/sect_03_04.html#sect_03_04) before used, so it's valid to use any `$__user_defined` from the missing configuration, `$param_name` from data, or an already typed `$missing`
+    * `_help`: a help message to the sysadmin
     * `_default`: default value of the missing
     * `_regex_validate`: valid regex with [extended](https://www.gnu.org/software/sed/manual/html_node/Extended-regexps.html) syntax to validate data
 
