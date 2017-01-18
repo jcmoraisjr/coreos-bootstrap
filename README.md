@@ -6,7 +6,7 @@ CoreOS Bootstrap merges partial configuration files, apply predefined or on dema
 
 Configuration render uses [{{Mustache}}](http://mustache.github.io) templates, so everything it's [JavaScript](https://github.com/janl/mustache.js) implementation supports, CoreOS Bootstrap should support as well.
 
-CoreOS Bootstrap also provides a simple-to-use in-place installation and update script.
+CoreOS Bootstrap also provides a simple-to-use provision / installation / update script.
 
 [![Docker Repository on Quay](https://quay.io/repository/jcmoraisjr/coreos-bootstrap/status "Docker Repository on Quay")](https://quay.io/repository/jcmoraisjr/coreos-bootstrap)
 
@@ -102,6 +102,79 @@ After the installation process and the reboot, ssh to the CoreOS host. Change `1
 The same script used to install should also be used to update CoreOS configuration. Change `192.168.1.10:8080` below to the endpoint of the CoreOS Bootstrap service and run on the CoreOS host to be updated:
 
     bash <(curl 192.168.1.10:8080)
+
+##Provisioning CoreOS
+
+The installation script can also be used on the host side to provision CoreOS. At this moment only libvirt is supported.
+
+###Libvirt
+
+Configure a bridge network so that CoreOS VMs can have routable IPs. Fedora doc [here](https://docs.fedoraproject.org/en-US/Fedora/17/html/System_Administrators_Guide/s2-networkscripts-interfaces_network-bridge.html), or, in short:
+
+* Check with `ip a` the device of the public IP
+* On directory `/etc/sysconfig/network-scripts`, copy `ifcfg-<**your-device**>` to `ifcfg-br0` and also to a backup
+* On `ifcfg-br0` leave all but two lines untouched, changing only `TYPE=Bridge` and `DEVICE=br0`
+* On `ifcfg-<**your-device**>` leave only `HWADDR`, `TYPE`, `BOOTPROTO`, `DEVICE`, `ONBOOT`, add `BRIDGE=br0` and remove the others
+* `sudo systemctl restart network` and hope the best
+
+Quick steps to install libvirt/qemu/kvm and some dependencies of the installation script on a Fedora/CentOS7/RHEL7 host:
+
+    # Change dnf to yum on CentOS7/RHEL
+    sudo dnf install -y libvirt virt-install virt-manager virt-viewer \
+      qemu-kvm bridge-utils bind-utils net-tools genisoimage
+    sudo systemctl start libvirtd
+    sudo systemctl enable libvirtd
+
+Steps to install Kimchi, a web GUI to your host and VMs:
+
+    # Change dnf to yum on CentOS7/RHEL
+    sudo dnf install -y \
+      http://kimchi-project.github.io/wok/downloads/latest/wok.el7.centos.noarch.rpm \
+      http://kimchi-project.github.io/gingerbase/downloads/latest/ginger-base.el7.centos.noarch.rpm \
+      http://kimchi-project.github.io/kimchi/downloads/latest/kimchi.el7.centos.noarch.rpm
+    # Optional: change ports, session timeout, SSL/TLS
+    sudo vim /etc/wok/wok.conf
+    sudo systemctl start wokd
+    sudo systemctl enable wokd
+
+Configure a non privileged user to create and run VMs. This user doesn't need to use `sudo`.
+
+    # Content of: /etc/polkit-1/localauthority/50-local.d/access.pkla
+    [Allow fred libvirt management permissions]
+    Identity=unix-user:<**your-user**>
+    Action=org.libvirt.unix.manage
+    ResultAny=yes
+    ResultInactive=yes
+    ResultActive=yes
+
+    # Place on .profile or .bashrc of the non privileged user:
+    export LIBVIRT_DEFAULT_URI=qemu:///system
+
+Create at least one storage pool. Note that the directory should be writable by `qemu` user (to use the disk) and also your non privileged user (to create the disk).
+
+    # Create /dir/of/storage/pool and fix it's owner and permission
+    export LIBVIRT_DEFAULT_URI=qemu:///system
+    virsh pool-define-as pool1 dir --target=/dir/of/storage/pool
+    virsh pool-build pool1
+    virsh pool-start pool1
+    virsh pool-autostart pool1
+
+Download CoreOS image for qemu anywhere readable by your non privileged user:
+
+    curl https://stable.release.core-os.net/amd64-usr/current/coreos_production_qemu_image.img.bz2 | bzcat > coreos_qemu.img
+
+Finally, try CoreOS Bootstrap. Change `192.168.1.10` below to the endpoint of the CoreOS Bootstrap service:
+
+    bash <(curl 192.168.1.10:8080)
+
+Some useful VM related libvirt commands:
+
+* `virsh list [--all]`: list running VMs, or all VMs if `--all` is provided
+* `virsh start <domain>`: start a VM
+* `virsh autostart [--disable] <domain>`: autostart a VM when host is powered on, or turn off autostart if `--disable` is provided
+* `virsh reboot <domain>`: gracefully reboot a VM
+* `virsh shutdown <domain>`: gracefully power off a VM
+* `virsh undefine <domain> [--remove-all-storage]`: remove a VM, and also it's disks if `--remove-all-storage` is provided
 
 #Options
 
@@ -258,3 +331,5 @@ This systemd unit has the most common configuration:
 * Tests of web-facade
 * Special meaning for `[]` and `{}` on installation script
 * Allow usage of `&` and `<empty-space>` on missing attributes of installation script
+* Provision with VirtualBox and VMware
+* Use of `_default` and `_regex_validate` on install and provision

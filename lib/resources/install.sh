@@ -1,7 +1,10 @@
 #!/bin/bash
 set -e
+set -o pipefail
 
 SVC="{{SVC}}"
+
+die() { echo "$*" >&2; exit 1; }
 
 #1 uri
 #2 match
@@ -188,17 +191,45 @@ read_cloud_config() {
   echo "$res"
 }
 
+#1... executables
+exec_exists() {
+  for b in "$@"; do
+    which "$b" >/dev/null 2>&1 && return 0
+  done
+  return 1
+}
+
+#1 tmpdir
+#2 user_data file
+#3 output file
+make_configdrive() {
+  local param_tmp param_user_data param_output_iso tmpiso
+  param_tmp=$1
+  param_user_data=$2
+  param_output_iso=$3
+  tmp_iso="${param_tmp}/iso"
+  if exec_exists mkisofs hdiutil; then
+    mkdir -p "${tmp_iso}/openstack/latest"
+    cp "$param_user_data" "${tmp_iso}/openstack/latest/user_data"
+    if exec_exists mkisofs; then
+      mkisofs -quiet -rock -volid config-2 -input-charset utf-8 -o "$param_output_iso" "$tmp_iso"
+    else
+      hdiutil makehybrid -quiet -iso -joliet -default-volume-name config-2 -o "$param_output_iso" "$tmp_iso"
+    fi
+  fi
+}
+
 #1 cloud-config
 cloud_config_no_changes() {
   # diff returns true (0) if the files don't differ
   sudo diff -q "$1" "$user_data_file" >/dev/null
 }
 
-#1 <>'' if is installed
+#1 msg with what to [d]o -- do not use [g] ;)
 #2... params
 ask_to_only_generate() {
-  local is_installed param value action msg opt sel
-  is_installed=$1
+  local msg opt sel param value action
+  msg=$1
   shift
   echo
   echo "============"
@@ -213,11 +244,8 @@ ask_to_only_generate() {
   echo "============"
   echo
 
-  if [ "$is_installed" ]; then
-    msg="[u]pdate";  opt="Uu"; sel="u"
-  else
-    msg="[i]nstall"; opt="Ii"; sel="i"
-  fi
+  sel=$(sed 's/.*\[\([a-z]\)\].*/\1/' <<< "$msg")  # one char, lower case
+  opt="$(tr '[a-z]' '[A-Z]' <<< "$sel")$sel"       # two chars, upper and lower case
 
   action=
   while [[ ! "$action" =~ ^["${opt}"Gg]$ ]]; do
@@ -228,12 +256,19 @@ ask_to_only_generate() {
   [[ "$action" =~ ^[Gg]$ ]]
 }
 
-#1 cloud-config
+#1 tmpdir with user_data and, perhaps, configdrive.iso
 save_cloud_config() {
-  local tmp
-  tmp=$(mktemp)
-  mv "$1" "$tmp"
-  echo "Cloud config saved to '$tmp'"
+  local tmp user_data_file configdrive_file
+  tmp=$(mktemp -d)
+  user_data_file="${1}/user_data"
+  configdrive_file="${1}/configdrive.iso"
+  mv "$user_data_file" "${tmp}/"
+  if [ -f "$configdrive_file" ]; then
+    mv "$configdrive_file" "${tmp}/"
+    echo "user_data and configdrive.iso saved to '${tmp}/'"
+  else
+    echo "Saved to '${tmp}/user_data'"
+  fi
 }
 
 #1 cloud-config
@@ -251,11 +286,13 @@ ask_to_update() {
   [[ "$action" =~ ^[Yy]$ ]]
 }
 
+#1 msg, default is "install"
 ask_to_install() {
-  local action
+  local action msg
+  msg="${1:-install}"
   action=
   while [[ ! "$action" =~ ^[YyNn]$ ]]; do
-    echo -n "OK to install? [y|n]: "
+    echo -n "OK to ${msg}? [y|n]: "
     read action
   done
   [[ "$action" =~ ^[Yy]$ ]]
@@ -284,6 +321,33 @@ do_install() {
   echo "Now you can look around and if everything is ok just type: sudo reboot"
 }
 
+#1 tmpdir with user_data and configdrive.iso
+do_provision_libvirt() {
+  local vm_dir vm_disk vm_iso
+  vm_dir=$(virsh -c "$virt_hypervisor" pool-dumpxml $virt_pool_name | sed -n 's/.*<path>\(.*\)<\/path>.*/\1/p')
+  vm_disk="${vm_dir}/${virt_name}_disk.img"
+  vm_iso="${vm_dir}/${virt_name}_configdrive.iso"
+  [ -f "$vm_disk" ] && die "Disk already exists: $vm_disk"
+  echo "Creating new image: $vm_disk"
+  cp "$virt_image" "$vm_disk"
+  virsh --connect "$virt_hypervisor" pool-refresh "$virt_pool_name"
+  if [ $virt_disksize -gt 8 ]; then
+    virsh --connect "$virt_hypervisor" vol-resize "$vm_disk" "${virt_disksize}GiB"
+  fi
+  cp "${1}/configdrive.iso" "$vm_iso"
+  virt-install \
+    --connect "$virt_hypervisor" \
+    --import --accelerate --noautoconsole \
+    --os-type=linux --os-variant=virtio26 \
+    --name "$virt_name" \
+    --ram "$virt_ram" --vcpus "$virt_vcpu" \
+    --disk path="$vm_disk",device=disk,format=raw,bus=virtio \
+    --disk path="$vm_iso",device=cdrom,format=raw,bus=ide \
+    --network bridge="$virt_bridge_network"
+  echo
+  echo "Domain '$virt_name' successfully started"
+}
+
 sleep 0.5
 
 params_bootstrap="svc_bootstrap binding"
@@ -298,40 +362,81 @@ if [ -n "$params_missing" ]; then
 fi
 
 user_data_file="/var/lib/coreos-install/user_data"
-cloud_config=$(mktemp)
-trap "rm -f $cloud_config" EXIT
+tmp=$(mktemp -d)
+trap "rm -rf $tmp" EXIT
+cloud_config="${tmp}/user_data"
 read_cloud_config > "$cloud_config"
+configdrive="${tmp}/configdrive.iso"
+make_configdrive "${tmp}" "$cloud_config" "$configdrive"
 
+grep -q CoreOS /etc/os-release 2>/dev/null && is_coreos=1 || is_coreos=
 [ -d /var/lib/coreos-install ] && is_installed=1 || is_installed=
-if [ $is_installed ] && cloud_config_no_changes "$cloud_config"; then
-  echo
-  echo "============"
-  echo
-  echo "Local user_data is already updated!"
-  echo "If you want to apply the actual configuration:"
-  echo
-  echo "    sudo coreos-cloudinit --from-file $user_data_file"
-  echo
-elif ask_to_only_generate "$is_installed" $params_bootstrap $params_missing; then
-  save_cloud_config "$cloud_config"
-elif [ $is_installed ]; then
-  echo
-  if ask_to_update "$cloud_config"; then
+
+if [ $is_coreos ]; then
+  [ $is_installed ] && action="[u]pdate" || action="[i]nstall"
+  if [ $is_installed ] && cloud_config_no_changes "$cloud_config"; then
     echo
-    do_update "$cloud_config"
+    echo "============"
+    echo
+    echo "Local user_data is already updated!"
+    echo "If you want to apply the actual configuration:"
+    echo
+    echo "    sudo coreos-cloudinit --from-file $user_data_file"
+    echo
+  elif ask_to_only_generate "$action" $params_bootstrap $params_missing; then
+    save_cloud_config "$tmp"
+  elif [ $is_installed ]; then
+    echo
+    if ask_to_update "$cloud_config"; then
+      echo
+      do_update "$cloud_config"
+    else
+      save_cloud_config "$tmp"
+    fi
   else
-    save_cloud_config "$cloud_config"
+    params_installation="device image_mirror coreos_channel coreos_version"
+    echo
+    echo "=== Installation params"
+    read_params "install" $params_installation
+    echo
+    if ask_to_install; then
+      echo
+      do_install "$cloud_config"
+    else
+      save_cloud_config "$tmp"
+    fi
   fi
-else
-  params_installation="device image_mirror coreos_channel coreos_version"
-  echo
-  echo "=== Installation params"
-  read_params "install" $params_installation
-  echo
-  if ask_to_install; then
-    echo
-    do_install "$cloud_config"
-  else
-    save_cloud_config "$cloud_config"
+else #if it's not CoreOS, look for a hypervisor
+  if exec_exists virt-install && exec_exists virsh; then
+    if ask_to_only_generate "provision with [l]ibvirt" $params_bootstrap $params_missing; then
+      save_cloud_config "$tmp"
+    else
+      echo
+      # # # # # # # # # # # # # # # # # # # # # # # # # # #
+      # TODO move to model
+      #
+      virt_hypervisor="qemu:///system"
+      virt_image="$(pwd)/coreos_qemu.img"
+      virt_pool_name="pool1"
+      virt_name="coreos_$(sed 's/.*\.//' <<< "$ipaddress")"
+      virt_ram="1024"
+      virt_vcpu="1"
+      virt_disksize="8"
+      virt_bridge_network=$(ip a | sed -n 's/[0-9]*: \([a-z0-9]*\): .*/\1/p' | tr '\n' '|')
+      #
+      # # # # # # # # # # # # # # # # # # # # # # # # # # #
+      echo "=== Provision params (libvirt)"
+      params_provision="virt_hypervisor virt_image virt_pool_name virt_name virt_ram virt_vcpu virt_disksize virt_bridge_network"
+      read_params "provision" $params_provision
+      echo
+      if ask_to_install "provision to ${virt_pool_name}::${virt_name}"; then
+        echo
+        do_provision_libvirt "$tmp"
+      else
+        save_cloud_config "$tmp"
+      fi
+    fi
+  else #if it's not CoreOS and no hypervisor was found
+    save_cloud_config "$tmp"
   fi
 fi

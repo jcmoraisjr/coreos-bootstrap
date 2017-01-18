@@ -8,7 +8,7 @@ missing:
     _default: '$__ip'
     _regex_validate: '^([0-9]{1,3}\.){3}[0-9]{1,3}$'
   ipaddress:
-    __ip: 'ip a show dev $network_intf | egrep -o "inet [0-9.]+" | sed -n "1s/inet //p"'
+    __ip: 'ip a show dev $network_intf 2>/dev/null | egrep -o "inet [0-9.]+" | sed -n "1s/inet //p"'
     _default: '$__ip'
     _regex_validate: '^([0-9]{1,3}\.){3}[0-9]{1,3}$'
   ipmask:
