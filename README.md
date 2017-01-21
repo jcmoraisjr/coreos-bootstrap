@@ -167,6 +167,15 @@ Finally, try CoreOS Bootstrap. Change `192.168.1.10` below to the endpoint of th
 
     bash <(curl 192.168.1.10:8080)
 
+If updating an already created VM - change `192.168.1.10` below to the endpoint of the CoreOS Bootstrap service:
+
+* Rerun `bash <(curl 192.168.1.10:8080)` on the host and `just [g]enerate cloud-config`
+* `mv /tmp/to/new/configdrive.iso /path/to/pool/<**vm-name**>_configdrive.iso` - you should overwrite the old `configdrive.iso`
+* If VM is not running, the new config will be applied on the next boot
+* If VM is running:
+    * `virsh attach-disk <**vm-name**> /path/to/pool/<**vm-name**>_configdrive.iso hda --type=cdrom`
+    * Inside VM: `sudo coreos-cloudinit -from-file /media/configdrive/openstack/latest/user_data`
+
 Some useful VM related libvirt commands:
 
 * `virsh list [--all]`: list running VMs, or all VMs if `--all` is provided
