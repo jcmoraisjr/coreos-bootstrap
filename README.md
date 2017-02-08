@@ -109,31 +109,32 @@ The installation script can also be used on the host side to provision CoreOS. A
 
 ###Libvirt
 
-Configure a bridge network so that CoreOS VMs can have routable IPs. Fedora doc [here](https://docs.fedoraproject.org/en-US/Fedora/17/html/System_Administrators_Guide/s2-networkscripts-interfaces_network-bridge.html), or, in short:
+Configure a bridge network so that CoreOS VMs can have routable IPs. Fedora doc [here](https://docs.fedoraproject.org/en-US/Fedora/17/html/System_Administrators_Guide/s2-networkscripts-interfaces_network-bridge.html), or, in short (Fedora and CentOS steps):
 
 * Check with `ip a` the device of the public IP
 * On directory `/etc/sysconfig/network-scripts`, copy `ifcfg-<**your-device**>` to `ifcfg-br0` and also to a backup
-* On `ifcfg-br0` leave all but two lines untouched, changing only `TYPE=Bridge` and `DEVICE=br0`
-* On `ifcfg-<**your-device**>` leave only `HWADDR`, `TYPE`, `BOOTPROTO`, `DEVICE`, `ONBOOT`, add `BRIDGE=br0` and remove the others
-* `sudo systemctl restart network` and hope the best
+* On `ifcfg-br0` leave all but four lines untouched: change `TYPE=Bridge`, `DEVICE=br0`, and remove `NAME=` and `UUID=`
+* On `ifcfg-<**your-device**>` leave only `HWADDR`, `TYPE`, `BOOTPROTO`, `ONBOOT`, `DEVICE=<**your-device**>`, add `BRIDGE=br0` and remove the others
+* `sudo systemctl restart network`, if everything sounds ok `sudo reboot` and hope the best
 
 Quick steps to install libvirt/qemu/kvm and some dependencies of the installation script on a Fedora/CentOS7/RHEL7 host:
 
-    # Change dnf to yum on CentOS7/RHEL
-    sudo dnf install -y libvirt virt-install virt-manager virt-viewer \
+    # Change yum to dnf on Fedora
+    sudo yum install -y libvirt virt-install virt-manager virt-viewer \
       qemu-kvm bridge-utils bind-utils net-tools genisoimage
     sudo systemctl start libvirtd
     sudo systemctl enable libvirtd
 
 Steps to install Kimchi, a web GUI to your host and VMs:
 
-    # Change dnf to yum on CentOS7/RHEL
-    sudo dnf install -y \
+    # Change yum to dnf on Fedora
+    sudo yum install -y \
       http://kimchi-project.github.io/wok/downloads/latest/wok.el7.centos.noarch.rpm \
       http://kimchi-project.github.io/gingerbase/downloads/latest/ginger-base.el7.centos.noarch.rpm \
       http://kimchi-project.github.io/kimchi/downloads/latest/kimchi.el7.centos.noarch.rpm
     # Optional: change ports, session timeout, SSL/TLS
     sudo vim /etc/wok/wok.conf
+    sudo systemctl daemon-reload
     sudo systemctl start wokd
     sudo systemctl enable wokd
 
