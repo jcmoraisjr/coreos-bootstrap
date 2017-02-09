@@ -138,6 +138,8 @@ Steps to install Kimchi, a web GUI to your host and VMs:
     sudo systemctl start wokd
     sudo systemctl enable wokd
 
+The `wokd` service will fail if firewalld or SELinux are enabled, see it's [troubleshooting](https://github.com/kimchi-project/wok/blob/master/docs/troubleshooting.md) doc.
+
 Configure a non privileged user to create and run VMs. This user doesn't need to use `sudo`.
 
     # Content of: /etc/polkit-1/localauthority/50-local.d/access.pkla
