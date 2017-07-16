@@ -16,13 +16,14 @@ Running with Node.js:
 
 ```console
 npm install --production ## Only in the first time
-make node-run
+node bootstrap.js -c sample
 ```
 
 Running as a Docker container - you should copy `sample` directory if using Docker on a VM, like Docker Machine:
 
 ```console
-make container-run
+docker run -d -v ${PWD}/sample:/opt/sample -p 8080:8080 \
+  quay.io/jcmoraisjr/coreos-bootstrap -c /opt/sample
 ```
 
 Both Node.js and Docker samples above uses `sample` config directory. A config directory has:
