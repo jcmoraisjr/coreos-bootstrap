@@ -88,7 +88,7 @@ Check the name of the public network interface on the CoreOS host:
 
 ```console
 ip a
-``console
+```
 
 Change, below, `192.168.1.11` to a valid IP address on the network, `24` to the network mask and `eth0` to the name of the public network interface.
 
