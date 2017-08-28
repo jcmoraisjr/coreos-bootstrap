@@ -148,22 +148,7 @@ sudo systemctl start libvirtd
 sudo systemctl enable libvirtd
 ```
 
-Steps to install Kimchi, a web GUI to your host and VMs:
-
-```console
-# Change yum to dnf on Fedora
-sudo yum install -y \
-  http://kimchi-project.github.io/wok/downloads/latest/wok.el7.centos.noarch.rpm \
-  http://kimchi-project.github.io/gingerbase/downloads/latest/ginger-base.el7.centos.noarch.rpm \
-  http://kimchi-project.github.io/kimchi/downloads/latest/kimchi.el7.centos.noarch.rpm
-# Optional: change ports, session timeout, SSL/TLS
-sudo vim /etc/wok/wok.conf
-sudo systemctl daemon-reload
-sudo systemctl start wokd
-sudo systemctl enable wokd
-```
-
-The `wokd` service will fail if firewalld or SELinux are enabled, see it's [troubleshooting](https://github.com/kimchi-project/wok/blob/master/docs/troubleshooting.md) doc.
+Install Kimchi, a web GUI to your host and VMs. Instructions and troubleshooting [here](https://github.com/kimchi-project/kimchi/releases).
 
 Configure a non privileged user to create and run VMs. This user doesn't need to use `sudo`.
 
